@@ -308,6 +308,13 @@ function handleCheckout(e) {
         return;
     }
     
+    // Disable form to prevent double submission
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const cancelBtn = document.getElementById('cancel-session');
+    submitBtn.disabled = true;
+    cancelBtn.disabled = true;
+    submitBtn.innerHTML = '<i data-lucide="loader" class="w-5 h-5 inline mr-2 animate-spin"></i>Processing...';
+    
     fetch('api_checkout_student.php', {
         method: 'POST',
         headers: {
@@ -323,14 +330,26 @@ function handleCheckout(e) {
     .then(data => {
         if (data.success) {
             alert(data.message);
-            window.location.href = 'dashboard.php';
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            } else {
+                window.location.href = 'dashboard.php';
+            }
         } else {
             alert('Error: ' + data.message);
+            // Re-enable form on error
+            submitBtn.disabled = false;
+            cancelBtn.disabled = false;
+            submitBtn.innerHTML = '<i data-lucide="check" class="w-5 h-5 inline mr-2"></i>Check Out & Selesaikan';
         }
     })
     .catch(error => {
         console.error('Error:', error);
         alert('Terjadi kesalahan saat checkout');
+        // Re-enable form on error
+        submitBtn.disabled = false;
+        cancelBtn.disabled = false;
+        submitBtn.innerHTML = '<i data-lucide="check" class="w-5 h-5 inline mr-2"></i>Check Out & Selesaikan';
     });
 }
 

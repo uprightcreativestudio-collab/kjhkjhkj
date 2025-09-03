@@ -1,5 +1,30 @@
 <?php
 session_start();
+require '../config/database.php';
+
+// Check for remember me token
+if (!isset($_SESSION['user_id']) && isset($_COOKIE['student_remember_token'])) {
+    $remember_token = $_COOKIE['student_remember_token'];
+    
+    $stmt = $pdo->prepare("
+        SELECT id, nama_lengkap 
+        FROM siswa 
+        WHERE remember_token = ? 
+        AND remember_token_expires > NOW()
+    ");
+    $stmt->execute([$remember_token]);
+    $user = $stmt->fetch();
+    
+    if ($user) {
+        $_SESSION['user_id'] = $user['id'];
+        header('Location: dashboard.php');
+        exit();
+    } else {
+        // Invalid or expired token, clear cookie
+        setcookie('student_remember_token', '', time() - 3600, '/');
+    }
+}
+
 // If user is already logged in, redirect to dashboard
 if (isset($_SESSION['user_id'])) {
     header('Location: dashboard.php');
@@ -43,6 +68,14 @@ $error = $_GET['error'] ?? '';
                 </div>
                 <button type="submit" class="continue-button">Continue</button>
             </form>
+            <div class="flex items-center justify-between mt-4">
+                <div class="flex items-center">
+                    <input id="remember" name="remember" type="checkbox" class="h-4 w-4 text-pink-accent focus:ring-pink-accent border-pink-300 rounded">
+                    <label for="remember" class="ml-2 block text-sm text-pink-dark">
+                        Remember me
+                    </label>
+                </div>
+            </div>
             <a href="forgot_password.php" class="forgot-password">Forgot Password?</a>
         </div>
     </div>

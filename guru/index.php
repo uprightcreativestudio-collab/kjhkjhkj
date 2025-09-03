@@ -1,5 +1,31 @@
 <?php
 session_start();
+require '../config/database.php';
+
+// Check for remember me token
+if (!isset($_SESSION['guru_id']) && isset($_COOKIE['guru_remember_token'])) {
+    $remember_token = $_COOKIE['guru_remember_token'];
+    
+    $stmt = $pdo->prepare("
+        SELECT id, nama_lengkap 
+        FROM guru 
+        WHERE remember_token = ? 
+        AND remember_token_expires > NOW()
+    ");
+    $stmt->execute([$remember_token]);
+    $guru = $stmt->fetch();
+    
+    if ($guru) {
+        $_SESSION['guru_id'] = $guru['id'];
+        $_SESSION['guru_nama'] = $guru['nama_lengkap'];
+        header('Location: dashboard.php');
+        exit();
+    } else {
+        // Invalid or expired token, clear cookie
+        setcookie('guru_remember_token', '', time() - 3600, '/');
+    }
+}
+
 if (isset($_SESSION['guru_id'])) {
     header('Location: dashboard.php');
     exit();
@@ -58,6 +84,15 @@ $error = $_GET['error'] ?? '';
           class="w-full flex justify-center py-2 px-4 rounded-md shadow-md text-sm font-semibold text-white bg-[#800020] hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-pink-500 transition">
           Login
         </button>
+      </div>
+
+      <div class="flex items-center justify-between mt-4">
+        <div class="flex items-center">
+          <input id="remember" name="remember" type="checkbox" class="h-4 w-4 text-[#800020] focus:ring-[#800020] border-pink-300 rounded">
+          <label for="remember" class="ml-2 block text-sm text-gray-700">
+            Remember me
+          </label>
+        </div>
       </div>
     </form>
   </div>

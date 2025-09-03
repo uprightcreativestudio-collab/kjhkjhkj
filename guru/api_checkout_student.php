@@ -68,7 +68,8 @@ try {
 
     echo json_encode([
         'success' => true, 
-        'message' => 'Check-out berhasil. Sesi telah diselesaikan.'
+        'message' => 'Check-out berhasil. Sesi telah diselesaikan.',
+        'redirect' => 'dashboard.php'
     ]);
 
 } catch (PDOException $e) {
