@@ -92,6 +92,8 @@ body::before {
     position: relative;
     top: 40px;
     width: 120px;
+    height: auto;
+    background: transparent;
     animation: bounce 2s ease-in-out infinite;
     z-index: 3;
 }

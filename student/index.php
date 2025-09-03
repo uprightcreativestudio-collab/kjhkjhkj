@@ -43,7 +43,7 @@ $error = $_GET['error'] ?? '';
                 </div>
                 <button type="submit" class="continue-button">Continue</button>
             </form>
-            <a href="#" class="forgot-password">Forgot Password?</a>
+            <a href="forgot_password.php" class="forgot-password">Forgot Password?</a>
         </div>
     </div>
 </body>

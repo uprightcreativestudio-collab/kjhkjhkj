@@ -18,11 +18,7 @@ $student = null;
 
 if ($qr_data) {
     // Parse QR data to get student info
-    // Format QR: AVA-{siswa_id}
     if (strpos($qr_data, 'AVA-') === 0) {
-        $qr_id = str_replace('AVA-', '', $qr_data);
-        
-        // Find student by QR identifier
         $stmt = $pdo->prepare("SELECT * FROM siswa WHERE qr_code_identifier = ?");
         $stmt->execute([$qr_data]);
         $student = $stmt->fetch();
@@ -40,11 +36,7 @@ if ($qr_data) {
 
 // If we have student data, get schedule info
 if ($student && $schedule_id) {
-    $stmt = $pdo->prepare("
-        SELECT j.hari, j.jam_mulai, j.jam_selesai 
-        FROM jadwal j 
-        WHERE j.id = ?
-    ");
+    $stmt = $pdo->prepare("SELECT j.hari, j.jam_mulai, j.jam_selesai FROM jadwal j WHERE j.id = ?");
     $stmt->execute([$schedule_id]);
     $schedule = $stmt->fetch();
     
@@ -53,7 +45,7 @@ if ($student && $schedule_id) {
     }
 }
 
-// Check if there's an active session today (only if we have a student)
+// Check if there's an active session today
 $current_session = null;
 if ($student_id) {
     $today = date('Y-m-d');
@@ -102,12 +94,19 @@ if (isset($_POST['action']) && $_POST['action'] === 'checkout' && $student_id &&
     ");
     $stmt->execute([$nilai_perkembangan, $keterangan, $current_session['id']]);
     
+    // Clear streaming session
+    $stmt = $pdo->prepare("UPDATE siswa SET active_stream_id = NULL WHERE id = ?");
+    $stmt->execute([$student_id]);
+    
+    // Clear session data
+    unset($_SESSION['scanned_student_id']);
+    unset($_SESSION['scanned_student_name']);
+    
     $_SESSION['success'] = 'Session completed successfully!';
     header('Location: dashboard.php');
     exit;
 }
 
-// Include header after all redirect logic
 include 'partials/header.php';
 ?>
 
@@ -156,7 +155,7 @@ include 'partials/header.php';
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
             <div class="flex items-center space-x-4">
                 <?php if ($student['foto_profil']): ?>
-                    <img src="../uploads/profil/<?php echo htmlspecialchars($student['foto_profil']); ?>" 
+                    <img src="../<?php echo htmlspecialchars($student['foto_profil']); ?>" 
                          alt="Profile" class="w-16 h-16 rounded-full object-cover">
                 <?php else: ?>
                     <div class="w-16 h-16 rounded-full bg-gray-300 flex items-center justify-center">
@@ -182,18 +181,18 @@ include 'partials/header.php';
                         <i class="fas fa-qrcode text-green-600 text-3xl"></i>
                     </div>
                     <h4 class="text-lg font-medium text-gray-800 mb-2">Mulai Sesi Belajar</h4>
-                    <p class="text-gray-600 mb-4">Scan QR code siswa atau klik tombol di bawah untuk check-in</p>
+                    <p class="text-gray-600 mb-4">Klik tombol di bawah untuk check-in siswa</p>
                     
                     <form method="POST" class="inline">
                         <input type="hidden" name="action" value="checkin">
-                        <button type="submit" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 font-medium">
-                            <i class="fas fa-sign-in-alt mr-2"></i>Check In
+                        <button type="submit" class="bg-green-600 text-white px-8 py-4 rounded-lg hover:bg-green-700 font-medium text-lg">
+                            <i class="fas fa-sign-in-alt mr-2"></i>Check In & Mulai Streaming
                         </button>
                     </form>
                 </div>
                 
             <?php elseif ($current_session['status'] === 'in_progress'): ?>
-                <!-- Check-out Form with Evaluation -->
+                <!-- Active Session - Show Checkout Option -->
                 <div>
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                         <div class="flex items-center">
@@ -205,33 +204,49 @@ include 'partials/header.php';
                         </div>
                     </div>
                     
-                    <form method="POST" class="space-y-6">
-                        <input type="hidden" name="action" value="checkout">
-                        
-                        <h4 class="text-lg font-semibold text-pink-dark">Evaluasi Sesi</h4>
-                        
-                        <!-- Progress Score -->
-                        <div>
-                            <label class="block text-sm font-medium text-pink-dark mb-2">Nilai Perkembangan (10-100)</label>
-                            <input type="number" name="nilai_perkembangan" min="10" max="100" step="1" 
-                                   class="w-full border border-gray-300 rounded-xl p-3 focus:ring-pink-accent focus:border-pink-accent"
-                                   placeholder="Masukkan nilai 10-100" required>
+                    <!-- Streaming Controls -->
+                    <div class="bg-gradient-to-r from-purple-50 to-blue-50 p-4 rounded-lg border border-purple-200 mb-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="font-medium text-purple-800">Live Streaming</p>
+                                <p class="text-sm text-purple-600">Siswa dapat bergabung ke streaming</p>
+                            </div>
+                            <a href="stream.php" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all">
+                                <i class="fas fa-video mr-2"></i>Buka Streaming
+                            </a>
                         </div>
+                    </div>
+                    
+                    <!-- Checkout Form -->
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+                        <h4 class="text-lg font-semibold text-red-800 mb-4">Selesaikan Sesi & Check Out</h4>
                         
-                        <!-- Comments -->
-                        <div>
-                            <label class="block text-sm font-medium text-pink-dark mb-2">Catatan & Feedback</label>
-                            <textarea name="keterangan" rows="4" 
-                                      class="w-full border border-gray-300 rounded-xl p-3 focus:ring-pink-accent focus:border-pink-accent"
-                                      placeholder="Tulis catatan tentang progress siswa, area yang perlu diperbaiki, atau pencapaian hari ini..." required></textarea>
-                        </div>
-                        
-                        <div class="flex justify-center">
-                            <button type="submit" class="bg-red-600 text-white px-8 py-3 rounded-lg hover:bg-red-700 font-medium">
-                                <i class="fas fa-sign-out-alt mr-2"></i>Selesaikan Sesi
-                            </button>
-                        </div>
-                    </form>
+                        <form method="POST" class="space-y-4">
+                            <input type="hidden" name="action" value="checkout">
+                            
+                            <!-- Progress Score -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Nilai Perkembangan (10-100)</label>
+                                <input type="number" name="nilai_perkembangan" min="10" max="100" step="1" 
+                                       class="w-full border border-gray-300 rounded-xl p-3 focus:ring-red-500 focus:border-red-500"
+                                       placeholder="Masukkan nilai 10-100" required>
+                            </div>
+                            
+                            <!-- Comments -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Catatan & Feedback</label>
+                                <textarea name="keterangan" rows="4" 
+                                          class="w-full border border-gray-300 rounded-xl p-3 focus:ring-red-500 focus:border-red-500"
+                                          placeholder="Tulis catatan tentang progress siswa, area yang perlu diperbaiki, atau pencapaian hari ini..." required></textarea>
+                            </div>
+                            
+                            <div class="flex justify-center">
+                                <button type="submit" class="bg-red-600 text-white px-8 py-3 rounded-lg hover:bg-red-700 font-medium">
+                                    <i class="fas fa-sign-out-alt mr-2"></i>Check Out & Selesaikan Sesi
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
                 
             <?php else: ?>
@@ -245,6 +260,10 @@ include 'partials/header.php';
                         Check-in: <?php echo date('H:i', strtotime($current_session['checkin_time'])); ?> | 
                         Check-out: <?php echo date('H:i', strtotime($current_session['checkout_time'])); ?>
                     </p>
+                    <div class="bg-green-50 p-4 rounded-lg border border-green-200 mb-4">
+                        <p class="text-green-800 font-medium">Nilai: <?php echo $current_session['nilai_perkembangan']; ?>/100</p>
+                        <p class="text-green-700 text-sm mt-1"><?php echo htmlspecialchars($current_session['keterangan']); ?></p>
+                    </div>
                     <a href="dashboard.php" class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700">
                         Kembali ke Dashboard
                     </a>
@@ -275,12 +294,10 @@ include 'partials/header.php';
 let codeReader;
 let isScanning = false;
 
-// Wait for ZXing to load
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof ZXing !== 'undefined') {
         initializeScanner();
     } else {
-        // Retry after a short delay
         setTimeout(() => {
             if (typeof ZXing !== 'undefined') {
                 initializeScanner();
@@ -307,7 +324,6 @@ async function startScanner() {
     try {
         codeReader = new ZXing.BrowserQRCodeReader();
         
-        // Get video devices using navigator.mediaDevices
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
         
@@ -316,10 +332,8 @@ async function startScanner() {
             return;
         }
         
-        // Use the first available camera (or back camera on mobile if available)
         let selectedDeviceId = videoDevices[0].deviceId;
         
-        // Try to find back camera on mobile
         for (const device of videoDevices) {
             if (device.label.toLowerCase().includes('back') || device.label.toLowerCase().includes('rear')) {
                 selectedDeviceId = device.deviceId;
@@ -331,18 +345,14 @@ async function startScanner() {
         document.getElementById('start-scanner').style.display = 'none';
         document.getElementById('stop-scanner').style.display = 'inline-block';
         
-        // Start decoding
         codeReader.decodeFromVideoDevice(selectedDeviceId, 'scanner-video', (result, err) => {
             if (result) {
-                // QR code detected
                 const qrData = result.text;
                 console.log('QR Code detected:', qrData);
                 
                 if (qrData.startsWith('AVA-')) {
-                    // Stop scanner before redirecting
                     stopScanner();
                     
-                    // Submit the QR data
                     const form = document.createElement('form');
                     form.method = 'POST';
                     form.innerHTML = `<input type="hidden" name="qr_data" value="${qrData}">`;
@@ -362,7 +372,6 @@ async function startScanner() {
         console.error('Error starting scanner:', err);
         alert('Error memulai scanner: ' + err.message);
         
-        // Fallback: try to get camera access manually
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true });
             const video = document.getElementById('scanner-video');
@@ -371,7 +380,6 @@ async function startScanner() {
             document.getElementById('start-scanner').style.display = 'none';
             document.getElementById('stop-scanner').style.display = 'inline-block';
             
-            // Manual scanning with basic setup
             codeReader = new ZXing.BrowserQRCodeReader();
             codeReader.decodeFromStream(stream, 'scanner-video', (result, err) => {
                 if (result) {
@@ -406,7 +414,6 @@ function stopScanner() {
         codeReader.reset();
     }
     
-    // Stop all video streams
     const video = document.getElementById('scanner-video');
     if (video.srcObject) {
         const tracks = video.srcObject.getTracks();

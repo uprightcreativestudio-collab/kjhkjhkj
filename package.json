@@ -1,0 +1,18 @@
+{
+  "name": "ava-streaming-server",
+  "version": "1.0.0",
+  "description": "Socket.IO server for AVA live streaming",
+  "main": "socket_server.js",
+  "scripts": {
+    "start": "node socket_server.js",
+    "dev": "nodemon socket_server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

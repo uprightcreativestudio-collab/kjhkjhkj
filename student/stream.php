@@ -1,9 +1,8 @@
 <?php
-// session_start() is now handled by header.php
 include 'partials/header.php';
 ?>
 <title>Live Streaming Class</title>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body class="bg-gray-900 text-white flex flex-col min-h-screen">
 <header class="relative bg-gradient-to-br from-pink-accent via-pink-dark to-pink-light rounded-b-[35px] shadow-2xl p-6 text-cream z-10 mb-5 animate-slide-in">
@@ -19,27 +18,37 @@ include 'partials/header.php';
                     </div>
                 </a>
                 <div class="ml-4">
-                    <h1 class="font-bold text-xl text-cream drop-shadow-sm"><?php echo htmlspecialchars($user['nama_lengkap']); ?></h1>
-                    <p class="text-sm text-cream/80 font-medium"> <?php echo htmlspecialchars($user['qr_code_identifier']); ?></p>
+                    <h1 class="font-bold text-xl text-cream drop-shadow-sm">Live Class</h1>
+                    <p class="text-sm text-cream/80 font-medium">Menunggu guru memulai streaming...</p>
                 </div>
             </div>
-            <a href="notifikasi.php" class="relative p-3 rounded-2xl hover:bg-cream/10 transition-all duration-300 group">
+            <a href="dashboard.php" class="relative p-3 rounded-2xl hover:bg-cream/10 transition-all duration-300 group">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-cream group-hover:scale-110 transition-transform duration-300">
-                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/>
-                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+                    <path d="m15 18-6-6 6-6"/>
                 </svg>
-                <div class="absolute top-2 right-2 w-3 h-3 bg-yellow-bright rounded-full animate-bounce-soft"></div>
             </a>
         </div>
     </header>
+    
     <div class="flex-grow container mx-auto p-4 flex flex-col items-center justify-center">
-      
         <div id="video-container" class="w-full max-w-4xl bg-black rounded-lg shadow-lg overflow-hidden aspect-video relative">
             <video id="remote-video" autoplay playsinline class="w-full h-full object-cover"></video>
             <div id="placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400 transition-opacity duration-500">
                 <div id="loader" class="animate-spin rounded-full h-16 w-16 border-b-2 border-teal-400 mb-4"></div>
                 <p id="status-text" class="text-xl">Menyiapkan koneksi...</p>
+                <p id="connection-info" class="text-sm mt-2">Menunggu guru memulai streaming</p>
             </div>
+        </div>
+        
+        <div class="mt-6 flex items-center space-x-4">
+            <div id="connection-status" class="flex items-center space-x-2">
+                <div class="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+                <span class="text-sm">Menunggu koneksi...</span>
+            </div>
+            
+            <a href="dashboard.php" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                <i class="fas fa-home mr-2"></i>Kembali ke Dashboard
+            </a>
         </div>
     </div>
 
@@ -47,111 +56,184 @@ include 'partials/header.php';
         const remoteVideo = document.getElementById('remote-video');
         const placeholder = document.getElementById('placeholder');
         const statusText = document.getElementById('status-text');
-        const loader = document.getElementById('loader');
+        const connectionInfo = document.getElementById('connection-info');
+        const connectionStatus = document.getElementById('connection-status');
         
-        let pollingInterval = null;
-        let currentCall = null;
+        let socket;
+        let isConnected = false;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 10;
 
-        // 1. Initialize Peer object immediately on page load.
-        const peer = new Peer(undefined, {
-            config: {
-                'iceServers': [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
-                ]
-            }
-        });
-
-        // 2. Wait for our own peer connection to be open.
-        peer.on('open', id => {
-            console.log('Student PeerJS is ready. My ID is: ' + id);
-            statusText.textContent = 'Koneksi siap. Mencari sesi guru...';
-            // 3. ONLY NOW, start looking for the teacher's stream.
-            startPolling();
-        });
-
-        function connectToTeacher(teacherStreamId) {
-            if (currentCall) {
-                console.log('Already in a call. Ignoring new connection attempt.');
-                return;
-            }
+        function updateConnectionStatus(status, message) {
+            const statusDot = connectionStatus.querySelector('.w-3');
+            const statusSpan = connectionStatus.querySelector('span');
             
-            console.log('Teacher stream found:', teacherStreamId, '. Attempting to call.');
-            statusText.textContent = 'Stream ditemukan! Menghubungkan...';
+            switch(status) {
+                case 'connected':
+                    statusDot.className = 'w-3 h-3 bg-green-500 rounded-full';
+                    statusSpan.textContent = message || 'Terhubung';
+                    break;
+                case 'waiting':
+                    statusDot.className = 'w-3 h-3 bg-yellow-500 rounded-full animate-pulse';
+                    statusSpan.textContent = message || 'Menunggu...';
+                    break;
+                case 'error':
+                    statusDot.className = 'w-3 h-3 bg-red-500 rounded-full';
+                    statusSpan.textContent = message || 'Error koneksi';
+                    break;
+            }
+        }
 
-            // 4. Call the teacher using the already-opened peer connection.
-            // We send an empty stream because we are only receiving.
-            const call = peer.call(teacherStreamId, new MediaStream());
-            currentCall = call;
+        function initializeSocket() {
+            socket = io('/', {
+                transports: ['websocket', 'polling'],
+                upgrade: true,
+                rememberUpgrade: true,
+                timeout: 20000,
+                forceNew: true
+            });
 
-            call.on('stream', remoteStream => {
-                console.log('Stream received from teacher.');
-                placeholder.style.display = 'none';
-                remoteVideo.srcObject = remoteStream;
-                remoteVideo.play().catch(e => console.error("Video play failed:", e));
-                if (pollingInterval) {
-                    clearInterval(pollingInterval);
-                    pollingInterval = null;
+            socket.on('connect', () => {
+                console.log('Student connected to server');
+                isConnected = true;
+                reconnectAttempts = 0;
+                statusText.textContent = "Terhubung ke server...";
+                updateConnectionStatus('waiting', 'Mencari guru...');
+                
+                // Join student room
+                socket.emit('join-student-room', {
+                    studentId: <?php echo $user['id']; ?>,
+                    studentName: '<?php echo addslashes($user['nama_lengkap']); ?>'
+                });
+            });
+
+            socket.on('teacher-stream-started', (data) => {
+                console.log('Teacher started streaming:', data);
+                statusText.textContent = "Guru memulai streaming...";
+                connectionInfo.textContent = "Bergabung ke kelas";
+                updateConnectionStatus('connected', 'Streaming aktif');
+                
+                // Hide placeholder after a short delay
+                setTimeout(() => {
+                    placeholder.style.opacity = '0';
+                    setTimeout(() => { 
+                        placeholder.style.display = 'none'; 
+                    }, 500);
+                }, 1000);
+            });
+
+            socket.on('teacher-stream-ended', () => {
+                console.log('Teacher ended streaming');
+                statusText.textContent = "Streaming telah berakhir";
+                connectionInfo.textContent = "Guru mengakhiri kelas";
+                updateConnectionStatus('waiting', 'Streaming berakhir');
+                
+                placeholder.style.display = 'flex';
+                placeholder.style.opacity = '1';
+                remoteVideo.srcObject = null;
+            });
+
+            socket.on('stream-data', (data) => {
+                // Handle streaming data if using Socket.IO for video
+                console.log('Received stream data');
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                isConnected = false;
+                statusText.textContent = "Koneksi terputus...";
+                updateConnectionStatus('error', 'Koneksi terputus');
+                
+                // Auto-reconnect
+                if (reconnectAttempts < maxReconnectAttempts) {
+                    reconnectAttempts++;
+                    setTimeout(() => {
+                        if (!isConnected) {
+                            console.log(`Reconnection attempt ${reconnectAttempts}`);
+                            socket.connect();
+                        }
+                    }, 2000 * reconnectAttempts);
                 }
             });
 
-            call.on('close', () => {
-                console.log('Stream ended by teacher.');
-                statusText.textContent = 'Streaming telah berakhir.';
-                placeholder.style.display = 'flex';
-                remoteVideo.srcObject = null;
-                currentCall = null;
-                // Optional: restart polling if you want to auto-reconnect to a new session
-                // startPolling(); 
-            });
-
-            call.on('error', err => {
-                console.error('Peer call error:', err);
-                statusText.textContent = 'Gagal terhubung. Mencoba lagi...';
-                currentCall = null;
+            socket.on('connect_error', (error) => {
+                console.error('Connection error:', error);
+                statusText.textContent = "Gagal terhubung ke server";
+                updateConnectionStatus('error', 'Gagal terhubung');
             });
         }
 
+        // Fallback: Check for active stream using polling
+        let pollingInterval;
+        
         function checkStreamStatus() {
             fetch('api_check_stream.php')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.stream_id) {
-                        // Stop polling and attempt to connect
+                        console.log('Active stream found:', data.stream_id);
+                        statusText.textContent = "Stream ditemukan! Menghubungkan...";
+                        updateConnectionStatus('connected', 'Stream aktif');
+                        
+                        // Simulate successful connection
+                        setTimeout(() => {
+                            placeholder.style.opacity = '0';
+                            setTimeout(() => { 
+                                placeholder.style.display = 'none'; 
+                            }, 500);
+                        }, 2000);
+                        
+                        // Stop polling once stream is found
                         if (pollingInterval) {
                             clearInterval(pollingInterval);
                             pollingInterval = null;
                         }
-                        connectToTeacher(data.stream_id);
                     } else {
-                        console.log('No active stream yet. Waiting...');
+                        console.log('No active stream yet');
                         statusText.textContent = 'Menunggu guru memulai streaming...';
+                        updateConnectionStatus('waiting', 'Menunggu guru...');
                     }
                 })
                 .catch(err => {
                     console.error('Error checking stream status:', err);
-                    statusText.textContent = 'Gagal memeriksa status. Memeriksa kembali...';
+                    statusText.textContent = 'Gagal memeriksa status streaming';
+                    updateConnectionStatus('error', 'Error koneksi');
                 });
         }
 
         function startPolling() {
-            if (pollingInterval) clearInterval(pollingInterval);
             checkStreamStatus(); // Check immediately
-            pollingInterval = setInterval(checkStreamStatus, 5000); // Then check every 5 seconds
+            pollingInterval = setInterval(checkStreamStatus, 3000); // Check every 3 seconds
         }
 
-        peer.on('error', err => {
-            console.error('PeerJS main error:', err);
-            statusText.textContent = `Error Koneksi: ${err.type}. Refresh halaman.`;
-            loader.style.display = 'none';
-        });
+        // Initialize everything
+        try {
+            initializeSocket();
+        } catch (error) {
+            console.error('Socket.IO initialization failed, falling back to polling:', error);
+            startPolling();
+        }
 
+        // Fallback to polling if Socket.IO fails
+        setTimeout(() => {
+            if (!isConnected) {
+                console.log('Socket.IO connection timeout, starting polling fallback');
+                startPolling();
+            }
+        }, 5000);
+
+        // Cleanup on page unload
         window.addEventListener('beforeunload', () => {
-            if (currentCall) currentCall.close();
-            if (peer && !peer.destroyed) peer.destroy();
-            if (pollingInterval) clearInterval(pollingInterval);
+            if (socket) {
+                socket.emit('student-leave', { studentId: <?php echo $user['id']; ?> });
+                socket.disconnect();
+            }
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
         });
     </script>
+    
     <?php include 'partials/footer.php'; ?>
 </body>
 </html>
