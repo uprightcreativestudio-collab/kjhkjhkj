@@ -1,4 +1,3 @@
-
 <?php
 class PushNotificationHelper {
     private $pdo;
@@ -124,12 +123,8 @@ class PushNotificationHelper {
         
         return $httpCode >= 200 && $httpCode < 300;
     }
-}
 
-// Helper function for base64url encoding
-function base64url_encode($data) {
-    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
-    
+    // 🔥 tambahan method untuk broadcast ke semua siswa
     public function sendToAllStudents($title, $body, $url = null) {
         $stmt = $this->pdo->query("
             SELECT DISTINCT user_id 
@@ -146,5 +141,10 @@ function base64url_encode($data) {
         
         return $sent;
     }
+}
+
+// Helper function di luar class
+function base64url_encode($data) {
+    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
 }
 ?>
