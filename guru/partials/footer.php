@@ -15,6 +15,10 @@
                     <i data-lucide="calendar" class="w-6 h-6"></i>
                     <span class="text-xs font-medium mt-1">Jadwal</span>
                 </a>
+                <a href="stream.php" class="bottom-nav-item flex flex-col items-center p-2 text-pink-dark/70 hover:text-pink-accent transition-colors">
+                    <i data-lucide="upload" class="w-6 h-6"></i>
+                    <span class="text-xs font-medium mt-1">Gallery</span>
+                </a>
             </div>
         </nav>
         

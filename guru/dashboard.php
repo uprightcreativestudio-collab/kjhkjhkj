@@ -63,31 +63,31 @@ $jadwal_terisi = $stmt->fetchColumn();
     <!-- Streaming Card -->
     <div class="glass-effect p-6 rounded-2xl shadow-lg card-hover animate-fade-in" style="animation-delay: 0.4s;">
         <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-bold text-pink-dark">Kelas Live Stream</h2>
+            <h2 class="text-lg font-bold text-pink-dark">Upload Gallery</h2>
             <div class="w-12 h-12 bg-gradient-to-br <?php echo $scanned_student_id ? 'from-blue-soft to-blue-500' : 'from-gray-300 to-gray-400'; ?> rounded-2xl flex items-center justify-center shadow-lg">
-                <i data-lucide="video" class="w-6 h-6 text-cream"></i>
+                <i data-lucide="upload" class="w-6 h-6 text-cream"></i>
             </div>
         </div>
         
         <?php if ($scanned_student_id): ?>
             <div class="bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-xl border border-green-200 mb-4">
-                <p class="text-green-700 font-semibold text-sm mb-1">✓ Ready to Start</p>
-                <p class="text-green-600 text-xs">Siap untuk memulai kelas dengan <?php echo htmlspecialchars($scanned_student_name); ?>.</p>
+                <p class="text-green-700 font-semibold text-sm mb-1">✓ Ready to Upload</p>
+                <p class="text-green-600 text-xs">Siap upload materi untuk <?php echo htmlspecialchars($scanned_student_name); ?>.</p>
             </div>
             <a href="stream.php" class="block w-full text-center bg-gradient-to-r from-blue-soft to-blue-500 text-cream font-semibold py-3 px-4 rounded-xl hover:shadow-lg transition-all duration-300 transform hover:scale-105">
                 <div class="flex items-center justify-center space-x-2">
-                    <i data-lucide="play" class="w-5 h-5"></i>
-                    <span>Mulai Streaming Sekarang</span>
+                    <i data-lucide="upload" class="w-5 h-5"></i>
+                    <span>Upload Gallery Sekarang</span>
                 </div>
             </a>
         <?php else: ?>
             <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-4">
-                <p class="text-gray-600 text-sm">Pindai QR siswa terlebih dahulu untuk mengaktifkan streaming.</p>
+                <p class="text-gray-600 text-sm">Pindai QR siswa terlebih dahulu untuk mengaktifkan upload gallery.</p>
             </div>
             <button disabled class="block w-full text-center bg-gray-300 text-gray-500 font-semibold py-3 px-4 rounded-xl cursor-not-allowed">
                 <div class="flex items-center justify-center space-x-2">
-                    <i data-lucide="video-off" class="w-5 h-5"></i>
-                    <span>Mulai Streaming</span>
+                    <i data-lucide="upload-x" class="w-5 h-5"></i>
+                    <span>Upload Gallery</span>
                 </div>
             </button>
         <?php endif; ?>
