@@ -3,132 +3,76 @@
 $page_title = 'Progress Belajar';
 include 'partials/header.php';
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
-    exit;
-}
-
-$user_id = $_SESSION['user_id'];
-
-// Get user data
-$stmt = $pdo->prepare("SELECT * FROM siswa WHERE id = ?");
-$stmt->execute([$user_id]);
-$user = $stmt->fetch();
-
 // Get progress data
 $stmt = $pdo->prepare("
     SELECT * FROM student_progress 
-    WHERE siswa_id = ? AND status = 'completed' 
+    WHERE siswa_id = ? 
     ORDER BY session_date DESC
 ");
-$stmt->execute([$user_id]);
+$stmt->execute([$user['id']]);
 $progress_data = $stmt->fetchAll();
 
-// Calculate averages
-$averages = [
-    'teknik' => 0,
-    'pitch' => 0,
-    'rhythm' => 0,
-    'expression' => 0
-];
+// Calculate average from nilai_perkembangan
+$stmt = $pdo->prepare("
+    SELECT AVG(nilai_perkembangan) as avg_progress, COUNT(*) as total_sessions
+    FROM student_progress 
+    WHERE siswa_id = ? AND status = 'completed'
+");
+$stmt->execute([$user['id']]);
+$progress_summary = $stmt->fetch();
 
-if (!empty($progress_data)) {
-    $totals = ['teknik' => 0, 'pitch' => 0, 'rhythm' => 0, 'expression' => 0];
-    $counts = ['teknik' => 0, 'pitch' => 0, 'rhythm' => 0, 'expression' => 0];
-    
-    foreach ($progress_data as $session) {
-        if ($session['nilai_teknik']) { $totals['teknik'] += $session['nilai_teknik']; $counts['teknik']++; }
-        if ($session['nilai_pitch']) { $totals['pitch'] += $session['nilai_pitch']; $counts['pitch']++; }
-        if ($session['nilai_rhythm']) { $totals['rhythm'] += $session['nilai_rhythm']; $counts['rhythm']++; }
-        if ($session['nilai_expression']) { $totals['expression'] += $session['nilai_expression']; $counts['expression']++; }
-    }
-    
-    foreach ($averages as $key => &$avg) {
-        if ($counts[$key] > 0) {
-            $avg = round($totals[$key] / $counts[$key], 1);
-        }
-    }
-}
+$avg_progress = $progress_summary['avg_progress'] ? round($progress_summary['avg_progress'], 1) : 0;
+$total_sessions = $progress_summary['total_sessions'] ?? 0;
 
 // Get last 10 sessions for chart
-$chart_data = array_slice(array_reverse($progress_data), -10);
+$completed_sessions = array_filter($progress_data, function($session) {
+    return $session['status'] === 'completed';
+});
+$chart_data = array_slice(array_reverse($completed_sessions), -10);
 ?>
-<header class="relative bg-gradient-to-br from-pink-accent via-pink-dark to-pink-light rounded-b-[35px] shadow-2xl p-6 text-cream z-10 mb-5 animate-slide-in">
-        <div class="absolute inset-0 bg-gradient-to-br from-pink-accent/90 to-pink-dark/90 rounded-b-[35px] backdrop-blur-sm"></div>
-        <div class="absolute top-0 right-0 w-32 h-32 bg-yellow-bright/20 rounded-full -translate-y-16 translate-x-16 animate-pulse-soft"></div>
-        <div class="absolute bottom-0 left-0 w-24 h-24 bg-blue-soft/20 rounded-full translate-y-12 -translate-x-12 animate-float"></div>
 
-        <div class="relative flex items-center justify-between">
+<header class="relative bg-gradient-to-br from-pink-accent via-pink-dark to-pink-light rounded-b-[35px] shadow-2xl p-6 text-cream z-10 mb-5 animate-slide-in">
+    <div class="absolute inset-0 bg-gradient-to-br from-pink-accent/90 to-pink-dark/90 rounded-b-[35px] backdrop-blur-sm"></div>
+    <div class="absolute top-0 right-0 w-32 h-32 bg-yellow-bright/20 rounded-full -translate-y-16 translate-x-16 animate-pulse-soft"></div>
+    <div class="absolute bottom-0 left-0 w-24 h-24 bg-blue-soft/20 rounded-full translate-y-12 -translate-x-12 animate-float"></div>
+
+    <div class="relative flex items-center justify-between">
+        <div class="flex items-center">
+            <a href="dashboard.php" class="group mr-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-cream group-hover:scale-110 transition-transform duration-300">
+                    <path d="m15 18-6-6 6-6"/>
+                </svg>
+            </a>
             <div class="flex items-center">
-            <a href="profile.php" class="group">
-                    <div class="relative">
-                    <img class="w-16 h-16 rounded-full border-2 border-white-400 object-cover" src="<?php echo htmlspecialchars($user['foto_profil'] ? '../' . $user['foto_profil'] : '../avaaset/logo-ava.png'); ?>" alt="Profile Picture">      
-                    </div>
-                </a>
+                <img class="w-16 h-16 rounded-full border-2 border-white-400 object-cover" src="<?php echo htmlspecialchars($user['foto_profil'] ? '../' . $user['foto_profil'] : '../avaaset/logo-ava.png'); ?>" alt="Profile Picture">      
                 <div class="ml-4">
-                    <h1 class="font-bold text-xl text-cream drop-shadow-sm"><?php echo htmlspecialchars($user['nama_lengkap']); ?></h1>
-                    <p class="text-sm text-cream/80 font-medium"> <?php echo htmlspecialchars($user['qr_code_identifier']); ?></p>
+                    <h1 class="font-bold text-xl text-cream drop-shadow-sm">Progress Belajar</h1>
+                    <p class="text-sm text-cream/80 font-medium"><?php echo htmlspecialchars($user['nama_lengkap']); ?></p>
                 </div>
             </div>
-            <a href="notifikasi.php" class="relative p-3 rounded-2xl hover:bg-cream/10 transition-all duration-300 group">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-cream group-hover:scale-110 transition-transform duration-300">
-                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-                </svg>
-                <div class="absolute top-2 right-2 w-3 h-3 bg-yellow-bright rounded-full animate-bounce-soft"></div>
-            </a>
         </div>
     </header>
-<main class="min-h-screen bg-gradient-to-br from-cream via-pink-light/30 to-blue-soft/20 px-4 py-8">
-    
-    <div class="container mx-auto max-w-6xl">
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-pink-dark mb-4">Progress Belajar</h1>
-            <p class="text-pink-dark/70 text-lg">Lihat perkembangan kemampuan vokal Anda</p>
-        </div>
 
-        <!-- Overview Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="glass-effect p-6 rounded-2xl text-center">
-                <div class="w-16 h-16 bg-gradient-to-br from-blue-soft to-pink-light rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-microphone text-pink-dark text-xl"></i>
+<main class="flex-grow overflow-y-auto p-4 space-y-6 pb-20">
+    <div class="container mx-auto max-w-4xl">
+        <!-- Overall Progress Card -->
+        <div class="glass-effect p-6 rounded-2xl shadow-lg card-hover animate-fade-in">
+            <div class="text-center">
+                <h2 class="text-2xl font-bold text-pink-dark mb-4">Overall Progress</h2>
+                <div class="text-6xl font-bold text-pink-accent mb-2"><?php echo $avg_progress; ?></div>
+                <div class="text-lg text-pink-dark/70 mb-4">Average Score</div>
+                <div class="w-full bg-gray-200 rounded-full h-4 mb-4">
+                    <div class="bg-gradient-to-r from-pink-accent to-pink-dark h-4 rounded-full transition-all duration-1000" style="width: <?php echo $avg_progress; ?>%"></div>
                 </div>
-                <h3 class="text-lg font-semibold text-pink-dark mb-2">Teknik Vokal</h3>
-                <div class="text-3xl font-bold text-pink-accent"><?php echo $averages['teknik']; ?>/10</div>
-            </div>
-            
-            <div class="glass-effect p-6 rounded-2xl text-center">
-                <div class="w-16 h-16 bg-gradient-to-br from-pink-accent to-yellow-bright rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-music text-pink-dark text-xl"></i>
-                </div>
-                <h3 class="text-lg font-semibold text-pink-dark mb-2">Pitch Control</h3>
-                <div class="text-3xl font-bold text-pink-accent"><?php echo $averages['pitch']; ?>/10</div>
-            </div>
-            
-            <div class="glass-effect p-6 rounded-2xl text-center">
-                <div class="w-16 h-16 bg-gradient-to-br from-yellow-bright to-blue-soft rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-drum text-pink-dark text-xl"></i>
-                </div>
-                <h3 class="text-lg font-semibold text-pink-dark mb-2">Rhythm</h3>
-                <div class="text-3xl font-bold text-pink-accent"><?php echo $averages['rhythm']; ?>/10</div>
-            </div>
-            
-            <div class="glass-effect p-6 rounded-2xl text-center">
-                <div class="w-16 h-16 bg-gradient-to-br from-pink-light to-pink-accent rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-heart text-pink-dark text-xl"></i>
-                </div>
-                <h3 class="text-lg font-semibold text-pink-dark mb-2">Expression</h3>
-                <div class="text-3xl font-bold text-pink-accent"><?php echo $averages['expression']; ?>/10</div>
+                <p class="text-pink-dark/70"><?php echo $total_sessions; ?> completed sessions</p>
             </div>
         </div>
 
         <!-- Progress Chart -->
-        <div class="glass-effect p-6 rounded-2xl mb-8">
-            <h3 class="text-xl font-semibold text-pink-dark mb-6">Progress Chart</h3>
+        <div class="glass-effect p-6 rounded-2xl shadow-lg card-hover animate-fade-in" style="animation-delay: 0.2s;">
+            <h3 class="text-xl font-semibold text-pink-dark mb-6">Progress Trend</h3>
             <?php if (!empty($chart_data)): ?>
-                <div class="h-96">
+                <div class="h-64">
                     <canvas id="progressChart"></canvas>
                 </div>
             <?php else: ?>
@@ -142,7 +86,7 @@ $chart_data = array_slice(array_reverse($progress_data), -10);
         </div>
 
         <!-- Session History -->
-        <div class="glass-effect p-6 rounded-2xl">
+        <div class="glass-effect p-6 rounded-2xl shadow-lg card-hover animate-fade-in" style="animation-delay: 0.4s;">
             <h3 class="text-xl font-semibold text-pink-dark mb-6">Riwayat Sesi</h3>
             <?php if (!empty($progress_data)): ?>
                 <div class="space-y-4">
@@ -151,20 +95,17 @@ $chart_data = array_slice(array_reverse($progress_data), -10);
                             <div class="flex justify-between items-start mb-3">
                                 <div>
                                     <h4 class="font-semibold text-pink-dark"><?php echo date('d F Y', strtotime($session['session_date'])); ?></h4>
-                                    <p class="text-sm text-pink-dark/70"><?php echo date('H:i', strtotime($session['checkin_time'])); ?> - <?php echo date('H:i', strtotime($session['checkout_time'])); ?></p>
+                                    <p class="text-sm text-pink-dark/70">
+                                        <?php echo date('H:i', strtotime($session['checkin_time'])); ?> - 
+                                        <?php echo $session['checkout_time'] ? date('H:i', strtotime($session['checkout_time'])) : 'Ongoing'; ?>
+                                    </p>
                                 </div>
-                                <div class="flex space-x-2">
-                                    <?php if ($session['nilai_teknik']): ?>
-                                        <span class="bg-blue-soft/20 text-blue-soft px-2 py-1 rounded-full text-xs">T: <?php echo $session['nilai_teknik']; ?></span>
-                                    <?php endif; ?>
-                                    <?php if ($session['nilai_pitch']): ?>
-                                        <span class="bg-pink-accent/20 text-pink-accent px-2 py-1 rounded-full text-xs">P: <?php echo $session['nilai_pitch']; ?></span>
-                                    <?php endif; ?>
-                                    <?php if ($session['nilai_rhythm']): ?>
-                                        <span class="bg-yellow-bright/20 text-yellow-600 px-2 py-1 rounded-full text-xs">R: <?php echo $session['nilai_rhythm']; ?></span>
-                                    <?php endif; ?>
-                                    <?php if ($session['nilai_expression']): ?>
-                                        <span class="bg-pink-light/20 text-pink-dark px-2 py-1 rounded-full text-xs">E: <?php echo $session['nilai_expression']; ?></span>
+                                <div class="text-right">
+                                    <?php if ($session['nilai_perkembangan']): ?>
+                                        <div class="text-2xl font-bold text-pink-accent"><?php echo $session['nilai_perkembangan']; ?></div>
+                                        <div class="text-xs text-pink-dark/70">Score</div>
+                                    <?php else: ?>
+                                        <span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs">In Progress</span>
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -198,40 +139,14 @@ const chart = new Chart(ctx, {
         }, $chart_data)); ?>,
         datasets: [
             {
-                label: 'Teknik Vokal',
+                label: 'Progress Score',
                 data: <?php echo json_encode(array_map(function($session) { 
-                    return $session['nilai_teknik'] ?? 0; 
-                }, $chart_data)); ?>,
-                borderColor: '#60A5FA',
-                backgroundColor: 'rgba(96, 165, 250, 0.1)',
-                tension: 0.4
-            },
-            {
-                label: 'Pitch Control',
-                data: <?php echo json_encode(array_map(function($session) { 
-                    return $session['nilai_pitch'] ?? 0; 
-                }, $chart_data)); ?>,
-                borderColor: '#F472B6',
-                backgroundColor: 'rgba(244, 114, 182, 0.1)',
-                tension: 0.4
-            },
-            {
-                label: 'Rhythm',
-                data: <?php echo json_encode(array_map(function($session) { 
-                    return $session['nilai_rhythm'] ?? 0; 
-                }, $chart_data)); ?>,
-                borderColor: '#FBBF24',
-                backgroundColor: 'rgba(251, 191, 36, 0.1)',
-                tension: 0.4
-            },
-            {
-                label: 'Expression',
-                data: <?php echo json_encode(array_map(function($session) { 
-                    return $session['nilai_expression'] ?? 0; 
+                    return $session['nilai_perkembangan'] ?? 0; 
                 }, $chart_data)); ?>,
                 borderColor: '#EC4899',
                 backgroundColor: 'rgba(236, 72, 153, 0.1)',
-                tension: 0.4
+                tension: 0.4,
+                fill: true
             }
         ]
     },
@@ -241,7 +156,7 @@ const chart = new Chart(ctx, {
         scales: {
             y: {
                 beginAtZero: true,
-                max: 10,
+                max: 100,
                 grid: {
                     color: 'rgba(0, 0, 0, 0.1)'
                 }

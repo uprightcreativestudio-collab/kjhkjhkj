@@ -66,9 +66,6 @@ function isActive($page) {
     }
   </script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script type="text/javascript"
-      src="https://app.sandbox.midtrans.com/snap/snap.js"
-      data-client-key="SB-Mid-client-YOUR-CLIENT-KEY"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -79,7 +76,7 @@ function isActive($page) {
     body { 
       font-family: 'Inter', sans-serif; 
       background: linear-gradient(135deg, #FFFEE0 0%, #F5A6BB 50%, #78B2FB 100%);
-      min-height: 80vh;
+      min-height: 100vh;
     }
     
     .bottom-nav-item.active svg, .bottom-nav-item.active span { 

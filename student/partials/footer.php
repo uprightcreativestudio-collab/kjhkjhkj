@@ -1,5 +1,4 @@
-
-    <!-- Modern Bottom Navigation -->
+<!-- Modern Bottom Navigation -->
     <nav class="fixed bottom-0 left-0 right-0 z-30">
         <div class="mx-2 mb-2 glass-effect rounded-2xl shadow-2xl border border-pink-light/30">
             <div class="flex justify-around items-center py-1 px-1">

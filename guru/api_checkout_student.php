@@ -24,6 +24,12 @@ if (!$student_id || !$nilai_perkembangan) {
     exit();
 }
 
+// Validate nilai_perkembangan range
+if ($nilai_perkembangan < 1 || $nilai_perkembangan > 100) {
+    echo json_encode(['success' => false, 'message' => 'Nilai harus antara 1-100.']);
+    exit();
+}
+
 try {
     // Find active session for this student today
     $today = date('Y-m-d');
@@ -49,7 +55,12 @@ try {
             status = 'completed' 
         WHERE id = ?
     ");
-    $stmt->execute([$nilai_perkembangan, $keterangan, $active_session['id']]);
+    $result = $stmt->execute([$nilai_perkembangan, $keterangan, $active_session['id']]);
+    
+    if (!$result) {
+        echo json_encode(['success' => false, 'message' => 'Gagal menyimpan data checkout.']);
+        exit();
+    }
 
     // Clear session data
     unset($_SESSION['scanned_student_id']);

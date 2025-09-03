@@ -3,11 +3,6 @@ require '../config/database.php';
 include 'partials/header.php'; 
 
 // Fetch stats
-// 1. Attendance this month
-$stmt_absensi = $pdo->prepare("SELECT COUNT(*) FROM absensi WHERE siswa_id = ? AND MONTH(tanggal) = MONTH(CURRENT_DATE()) AND YEAR(tanggal) = YEAR(CURRENT_DATE())");
-$stmt_absensi->execute([$user['id']]);
-$absensi_bulan_ini = $stmt_absensi->fetchColumn();
-
 // 2. Unpaid bills
 $stmt_tagihan = $pdo->prepare("SELECT COUNT(*) FROM tagihan WHERE siswa_id = ? AND status = 'Belum Lunas'");
 $stmt_tagihan->execute([$user['id']]);
@@ -18,12 +13,38 @@ $stmt_ebooks = $pdo->prepare("SELECT COUNT(*) FROM ebooks WHERE created_at >= DA
 $stmt_ebooks->execute();
 $ebooks_baru = $stmt_ebooks->fetchColumn();
 
-// 4. Today's Schedule
-$hari_ini = date('l'); // 'l' returns the full day name, e.g., "Monday"
+// 4. Today's Schedule - Fix the logic
+$hari_mapping = [
+    'Sunday' => 'Minggu',
+    'Monday' => 'Senin',
+    'Tuesday' => 'Selasa', 
+    'Wednesday' => 'Rabu',
+    'Thursday' => 'Kamis',
+    'Friday' => 'Jumat',
+    'Saturday' => 'Sabtu'
+];
+
+$hari_ini_english = date('l');
+$hari_ini = $hari_mapping[$hari_ini_english];
 $jadwal_hari_ini = null;
-if (isset($user['hari']) && strtolower($user['hari']) == strtolower($hari_ini)) {
-    $jadwal_hari_ini = $user;
+
+if ($user['jadwal_id']) {
+    $stmt_jadwal = $pdo->prepare("SELECT * FROM jadwal WHERE id = ? AND hari = ?");
+    $stmt_jadwal->execute([$user['jadwal_id'], $hari_ini]);
+    $jadwal_hari_ini = $stmt_jadwal->fetch();
 }
+
+// Get progress data for overview
+$stmt_progress = $pdo->prepare("
+    SELECT AVG(nilai_perkembangan) as avg_progress, COUNT(*) as total_sessions
+    FROM student_progress 
+    WHERE siswa_id = ? AND status = 'completed'
+");
+$stmt_progress->execute([$user['id']]);
+$progress_summary = $stmt_progress->fetch();
+
+$avg_progress = $progress_summary['avg_progress'] ? round($progress_summary['avg_progress'], 1) : 0;
+$total_sessions = $progress_summary['total_sessions'] ?? 0;
 
 ?>
 <title>Dashboard - Mobile App</title>
@@ -87,19 +108,6 @@ if (isset($user['hari']) && strtolower($user['hari']) == strtolower($hari_ini)) 
     <main class="flex-grow overflow-y-auto p-4 space-y-6 pb-20">
         <!-- Modern Quick Stats -->
         <div class="grid grid-cols-2 gap-4 px-4">
-            <div class="glass-effect p-4 rounded-2xl shadow-lg border-l-4 border-blue-soft card-hover animate-fade-in">
-                <div class="flex items-center justify-between mb-2">
-                    <div class="w-8 h-8 bg-blue-soft/20 rounded-xl flex items-center justify-center">
-                        <svg class="w-4 h-4 text-blue-soft" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                    </div>
-                </div>
-                <h2 class="text-xs font-semibold text-pink-dark/70 mb-1">Attendance</h2>
-                <p class="text-2xl font-bold text-pink-dark"><?php echo $absensi_bulan_ini; ?></p>
-                <p class="text-xs text-pink-dark/60">days this month</p>
-            </div>
-            
             <div class="glass-effect p-4 rounded-2xl shadow-lg border-l-4 border-yellow-bright card-hover animate-fade-in" style="animation-delay: 0.1s;">
                 <div class="flex items-center justify-between mb-2">
                     <div class="w-8 h-8 bg-yellow-bright/20 rounded-xl flex items-center justify-center">
@@ -113,6 +121,19 @@ if (isset($user['hari']) && strtolower($user['hari']) == strtolower($hari_ini)) 
                 <p class="text-xs text-pink-dark/60">bills pending</p>
             </div>
             
+            <div class="glass-effect p-4 rounded-2xl shadow-lg border-l-4 border-blue-soft card-hover animate-fade-in" style="animation-delay: 0.2s;">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="w-8 h-8 bg-blue-soft/20 rounded-xl flex items-center justify-center">
+                        <svg class="w-4 h-4 text-blue-soft" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                </div>
+                <h2 class="text-xs font-semibold text-pink-dark/70 mb-1">Progress</h2>
+                <p class="text-2xl font-bold text-pink-dark"><?php echo $avg_progress; ?></p>
+                <p class="text-xs text-pink-dark/60">average score</p>
+            </div>
+            
             <div class="glass-effect p-4 rounded-2xl shadow-lg border-l-4 border-pink-accent card-hover animate-fade-in" style="animation-delay: 0.2s;">
                 <div class="flex items-center justify-between mb-2">
                     <div class="w-8 h-8 bg-pink-accent/20 rounded-xl flex items-center justify-center">
@@ -124,34 +145,6 @@ if (isset($user['hari']) && strtolower($user['hari']) == strtolower($hari_ini)) 
                 <h2 class="text-xs font-semibold text-pink-dark/70 mb-1">Course End</h2>
                 <p class="text-lg font-bold text-pink-dark"><?php echo date('d M Y', strtotime($user['tanggal_mulai'] . ' + ' . $user['durasi_bulan'] . ' months')); ?></p>
                 <p class="text-xs text-pink-dark/60">estimated date</p>
-            </div>
-            
-            <div class="glass-effect p-4 rounded-2xl shadow-lg border-l-4 border-pink-light card-hover animate-fade-in" style="animation-delay: 0.3s;">
-                <div class="flex items-center justify-between mb-2">
-                    <div class="w-8 h-8 bg-pink-light/20 rounded-xl flex items-center justify-center">
-                        <svg class="w-4 h-4 text-pink-light" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z"/>
-                        </svg>
-                    </div>
-                </div>
-                <h2 class="text-xs font-semibold text-pink-dark/70 mb-1">New E-Books</h2>
-                <p class="text-2xl font-bold text-pink-dark"><?php echo $ebooks_baru; ?></p>
-                <p class="text-xs text-pink-dark/60">this month</p>
-            </div>
-        </div>
-
-        <!-- Modern Attendance Overview -->
-        <div class="mx-4 glass-effect p-6 rounded-2xl shadow-lg card-hover animate-fade-in" style="animation-delay: 0.4s;">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-bold text-pink-dark">Attendance Overview</h2>
-                <div class="w-10 h-10 bg-gradient-to-br from-pink-accent to-pink-dark rounded-xl flex items-center justify-center">
-                    <svg class="w-5 h-5 text-cream" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                </div>
-            </div>
-            <div class="relative h-48">
-                <canvas id="attendanceChart"></canvas>
             </div>
         </div>
 
@@ -198,40 +191,14 @@ if (isset($user['hari']) && strtolower($user['hari']) == strtolower($hari_ini)) 
                 <a href="progress.php" class="text-sm font-medium text-pink-accent hover:text-pink-dark">View All</a>
             </div>
             
-            <?php
-            // Get latest progress
-            $stmt = $pdo->prepare("
-                SELECT AVG(nilai_teknik) as avg_teknik, AVG(nilai_pitch) as avg_pitch, 
-                       AVG(nilai_rhythm) as avg_rhythm, AVG(nilai_expression) as avg_expression,
-                       COUNT(*) as total_sessions
-                FROM student_progress 
-                WHERE siswa_id = ? AND status = 'completed'
-            ");
-            $stmt->execute([$user['id']]);
-            $progress_summary = $stmt->fetch();
-            
-            if ($progress_summary['total_sessions'] > 0):
-            ?>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-pink-accent"><?php echo round($progress_summary['avg_teknik'], 1); ?></div>
-                        <div class="text-xs text-pink-dark/70">Teknik Vokal</div>
+            <?php if ($total_sessions > 0): ?>
+                <div class="text-center">
+                    <div class="text-4xl font-bold text-pink-accent mb-2"><?php echo $avg_progress; ?>/100</div>
+                    <div class="text-sm text-pink-dark/70 mb-4">Average Score</div>
+                    <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
+                        <div class="bg-gradient-to-r from-pink-accent to-pink-dark h-3 rounded-full transition-all duration-500" style="width: <?php echo $avg_progress; ?>%"></div>
                     </div>
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-pink-accent"><?php echo round($progress_summary['avg_pitch'], 1); ?></div>
-                        <div class="text-xs text-pink-dark/70">Pitch Control</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-pink-accent"><?php echo round($progress_summary['avg_rhythm'], 1); ?></div>
-                        <div class="text-xs text-pink-dark/70">Rhythm</div>
-                    </div>
-                    <div class="text-center">
-                        <div class="text-2xl font-bold text-pink-accent"><?php echo round($progress_summary['avg_expression'], 1); ?></div>
-                        <div class="text-xs text-pink-dark/70">Expression</div>
-                    </div>
-                </div>
-                <div class="mt-4 text-center">
-                    <p class="text-sm text-pink-dark/70"><?php echo $progress_summary['total_sessions']; ?> completed sessions</p>
+                    <p class="text-sm text-pink-dark/70"><?php echo $total_sessions; ?> completed sessions</p>
                 </div>
             <?php else: ?>
                 <div class="text-center py-8">
@@ -255,103 +222,7 @@ if (isset($user['hari']) && strtolower($user['hari']) == strtolower($hari_ini)) 
             <span class="text-xs font-bold mt-1">Ebook</span>
         </a>
     </main>
-
-    <!-- Modern Bottom Navigation -->
-    <nav class="fixed bottom-0 left-0 right-0 z-30">
-        <div class="mx-2 mb-2 glass-effect rounded-2xl shadow-2xl border border-pink-light/30">
-            <div class="flex justify-around items-center py-1 px-1">
-                <a href="dashboard.php" class="bottom-nav-item flex flex-col items-center p-2 rounded-xl transition-all duration-300 active hover:bg-pink-light/20">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-pink-dark">
-                        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                        <polyline points="9,22 9,12 15,12 15,22"/>
-                    </svg>
-                    <span class="text-xs font-semibold mt-1 text-pink-dark">Home</span>
-                </a>
-                
-                <a href="payment_history.php" class="bottom-nav-item flex flex-col items-center p-2 rounded-xl transition-all duration-300 hover:bg-pink-light/20">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-pink-dark">
-                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                        <line x1="8" y1="21" x2="16" y2="21"/>
-                        <line x1="12" y1="17" x2="12" y2="21"/>
-                    </svg>
-                    <span class="text-xs font-semibold mt-1 text-pink-dark">Payment</span>
-                </a>
-                
-                <a href="qr_attendance.php" class="bottom-nav-item flex flex-col items-center p-3 rounded-xl transition-all duration-300 hover:bg-pink-light/20">
-                    <div class="relative">
-                        <div class="w-12 h-12 bg-gradient-to-br from-pink-accent to-pink-dark rounded-xl flex items-center justify-center shadow-lg transform hover:scale-110 transition-transform duration-300">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-cream">
-                                <rect x="3" y="3" width="5" height="5"/>
-                                <rect x="16" y="3" width="5" height="5"/>
-                                <rect x="3" y="16" width="5" height="5"/>
-                                <rect x="14" y="14" width="7" height="7"/>
-                                <rect x="13" y="11" width="3" height="3"/>
-                                <rect x="11" y="13" width="3" height="3"/>
-                            </svg>
-                        </div>
-                        <div class="absolute -top-1 -right-1 w-4 h-4 bg-yellow-bright rounded-full animate-pulse-soft"></div>
-                    </div>
-                    <span class="text-xs font-bold mt-1 text-pink-dark">QR</span>
-                </a>
-                
-                <a href="stream.php" class="bottom-nav-item flex flex-col items-center p-3 rounded-xl transition-all duration-300 hover:bg-pink-light/20">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-pink-dark">
-                        <rect x="3" y="3" width="18" height="12" rx="2" ry="2"/>
-                        <circle cx="9" cy="9" r="2"/>
-                        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
-                    </svg>
-                    <span class="text-xs font-semibold mt-1 text-pink-dark">Gallery</span>
-                </a>
-                
-                <a href="profile.php" class="bottom-nav-item flex flex-col items-center p-3 rounded-xl transition-all duration-300 hover:bg-pink-light/20">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-pink-dark">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                        <circle cx="12" cy="7" r="4"/>
-                    </svg>
-                    <span class="text-xs font-semibold mt-1 text-pink-dark">Profile</span>
-                </a>
-            </div>
-        </div>
-    </nav>
     
     <script src="main.js"></script>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const ctx = document.getElementById('attendanceChart').getContext('2d');
-    const attendedClasses = <?php echo $absensi_bulan_ini; ?>;
-    const totalClasses = 4; // Assuming 4 classes per month
-    const remainingClasses = Math.max(0, totalClasses - attendedClasses);
-
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Attended', 'Remaining'],
-            datasets: [{
-                label: 'Classes',
-                data: [attendedClasses, remainingClasses],
-                backgroundColor: [
-                    '#0ea5e9', // cyan-500
-                    '#e5e7eb'  // gray-200
-                ],
-                borderColor: '#ffffff',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '70%',
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                },
-                tooltip: {
-                    enabled: true
-                }
-            }
-        }
-    });
-});
-</script>
 <?php include 'partials/footer.php'; ?>
