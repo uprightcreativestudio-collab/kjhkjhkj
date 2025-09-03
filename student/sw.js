@@ -2,15 +2,17 @@
 
 const CACHE_NAME = 'ava-student-cache-v2';
 const urlsToCache = [
-    '/student/',
+    './',
     '/student/dashboard.php',
     '/student/profile.php',
     '/student/month_payment.php',
     '/student/qr_attendance.php',
+    'profile.php',
     '/student/stream.php',
-    '/student/ebook.php',
+    'qr_attendance.php',
     '/student/assets/images/logo-ava.png',
-    '/student/assets/images/logo-ava.png',
+    'ebook.php',
+    'assets/images/icon-192x192.png',
     'https://cdn.tailwindcss.com',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
 ];
@@ -66,9 +68,11 @@ self.addEventListener('push', event => {
     const title = data.title || 'AVA Notification';
     const options = {
         body: data.body || 'Anda memiliki notifikasi baru dari AVA.',
-        icon: 'assets/images/logo-ava.png',
-        badge: 'assets/images/logo-ava.png',
-        data: data.url || '/student/dashboard.php'
+        icon: '../uploads/pwa_icons/icon-192x192.png',
+        badge: '../uploads/pwa_icons/icon-192x192.png',
+        data: data.url || './dashboard.php',
+        tag: 'ava-notification',
+        requireInteraction: true
     };
 
     event.waitUntil(self.registration.showNotification(title, options));

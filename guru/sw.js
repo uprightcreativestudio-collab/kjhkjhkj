@@ -3,12 +3,12 @@
 
 const CACHE_NAME = 'ava-guru-cache-v1';
 const urlsToCache = [
-    '/guru/',
+    './',
     'dashboard.php',
     'jadwal_calendar.php',
     'scan.php',
     'stream.php',
-    '../user/assets/images/icon-192x192.png',
+    '../uploads/pwa_icons/icon-192x192.png',
     'https://cdn.tailwindcss.com',
     'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap'
 ];
@@ -64,9 +64,11 @@ self.addEventListener('push', event => {
     const title = data.title || 'AVA Guru Notification';
     const options = {
         body: data.body || 'Anda memiliki notifikasi baru.',
-        icon: '../user/assets/images/icon-192x192.png',
-        badge: '../user/assets/images/icon-192x192.png',
-        data: data.url || '/guru/dashboard.php'
+        icon: '../uploads/pwa_icons/icon-192x192.png',
+        badge: '../uploads/pwa_icons/icon-192x192.png',
+        data: data.url || './dashboard.php',
+        tag: 'ava-guru-notification',
+        requireInteraction: true
     };
 
     event.waitUntil(self.registration.showNotification(title, options));

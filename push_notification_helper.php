@@ -24,11 +24,17 @@ class PushNotificationHelper {
     }
     
     private function generateVapidKeys() {
-        // For production, you should use a proper VAPID key generator
-        // This is a simplified version for demo purposes
-        $keyPair = sodium_crypto_sign_keypair();
-        $this->vapidPrivateKey = base64_encode(sodium_crypto_sign_secretkey($keyPair));
-        $this->vapidPublicKey = base64_encode(sodium_crypto_sign_publickey($keyPair));
+        // Generate proper VAPID keys for web push
+        $keyPair = openssl_pkey_new([
+            'curve_name' => 'prime256v1',
+            'private_key_type' => OPENSSL_KEYTYPE_EC,
+        ]);
+        
+        $details = openssl_pkey_get_details($keyPair);
+        $this->vapidPublicKey = base64url_encode($details['ec']['x'] . $details['ec']['y']);
+        
+        openssl_pkey_export($keyPair, $privateKeyPem);
+        $this->vapidPrivateKey = base64url_encode($privateKeyPem);
         
         // Save to database
         $stmt = $this->pdo->prepare("INSERT INTO vapid_keys (public_key, private_key) VALUES (?, ?)");
@@ -74,8 +80,19 @@ class PushNotificationHelper {
     }
     
     private function sendPushNotification($endpoint, $p256dh, $auth, $payload) {
-        // Simplified push notification sending
-        // In production, use a proper library like web-push-php
+        // Improved push notification sending with proper headers
+        $headers = [
+            'Content-Type: application/json',
+            'Content-Length: ' . strlen($payload),
+            'TTL: 86400',
+            'Urgency: normal'
+        ];
+        
+        // Add authorization header if needed
+        if (strpos($endpoint, 'fcm.googleapis.com') !== false) {
+            // For FCM endpoints, we need proper authorization
+            $headers[] = 'Authorization: key=' . $this->vapidPrivateKey;
+        }
         
         $ch = curl_init();
         
@@ -83,22 +100,35 @@ class PushNotificationHelper {
             CURLOPT_URL => $endpoint,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $payload,
-            CURLOPT_HTTPHEADER => [
-                'Content-Type: application/json',
-                'Content-Length: ' . strlen($payload),
-                'TTL: 86400'
-            ],
+            CURLOPT_HTTPHEADER => $headers,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_TIMEOUT => 30
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_FOLLOWLOCATION => true
         ]);
         
         $result = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
         curl_close($ch);
+        
+        if ($error) {
+            error_log("Push notification cURL error: " . $error);
+            return false;
+        }
+        
+        if ($httpCode < 200 || $httpCode >= 300) {
+            error_log("Push notification failed with HTTP code: " . $httpCode . ", Response: " . $result);
+            return false;
+        }
         
         return $httpCode >= 200 && $httpCode < 300;
     }
+}
+
+// Helper function for base64url encoding
+function base64url_encode($data) {
+    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
     
     public function sendToAllStudents($title, $body, $url = null) {
         $stmt = $this->pdo->query("

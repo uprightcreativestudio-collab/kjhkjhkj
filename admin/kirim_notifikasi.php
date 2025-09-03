@@ -28,9 +28,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pushSent = $pushHelper->sendNotification($siswa_id, 'student', $judul, $pesan, '/user/notifikasi.php');
             
             if ($pushSent) {
-                $_SESSION['flash_message'] = "Notifikasi berhasil dikirim ke siswa (termasuk push notification).";
+                $_SESSION['flash_message'] = "Notifikasi berhasil dikirim ke siswa dan push notification telah dikirim.";
             } else {
-                $_SESSION['flash_message'] = "Notifikasi tersimpan, tapi push notification gagal dikirim.";
+                $_SESSION['flash_message'] = "Notifikasi tersimpan. Push notification mungkin gagal dikirim (pastikan siswa sudah install app dan izinkan notifikasi).";
             }
             
             header("Location: kirim_notifikasi.php");

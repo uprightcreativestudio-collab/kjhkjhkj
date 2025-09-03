@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Service Worker Registration
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/guru/sw.js')
+        navigator.serviceWorker.register('sw.js')
             .then(registration => {
                 console.log('Service Worker registered with scope:', registration.scope);
                 // Initialize push notifications
@@ -74,7 +74,7 @@ async function initializePushNotifications(registration) {
     // Get push subscription
     try {
         // Get VAPID public key from server
-        const vapidResponse = await fetch('/get_vapid_key.php');
+        const vapidResponse = await fetch('../get_vapid_key.php');
         const vapidData = await vapidResponse.json();
         
         if (!vapidData.success) {
@@ -96,7 +96,7 @@ async function initializePushNotifications(registration) {
 // Save subscription to server
 async function saveSubscription(subscription, userType) {
     try {
-        const response = await fetch('/save_push_subscription.php', {
+        const response = await fetch('../save_push_subscription.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

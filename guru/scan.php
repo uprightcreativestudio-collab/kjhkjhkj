@@ -142,18 +142,24 @@ let codeReader;
 let isScanning = false;
 
 document.addEventListener('DOMContentLoaded', function() {
-    if (typeof ZXing !== 'undefined') {
-        initializeScanner();
-    } else {
-        setTimeout(() => {
-            if (typeof ZXing !== 'undefined') {
-                initializeScanner();
-            } else {
-                console.error('ZXing library not loaded');
-                document.getElementById('start-scanner').disabled = true;
-                document.getElementById('start-scanner').innerHTML = '<i data-lucide="camera-off" class="w-5 h-5 inline mr-2"></i>Library Error';
-            }
-        }, 1000);
+    // Initialize scanner only if elements exist
+    const startScannerBtn = document.getElementById('start-scanner');
+    const stopScannerBtn = document.getElementById('stop-scanner');
+    
+    if (startScannerBtn && stopScannerBtn) {
+        if (typeof ZXing !== 'undefined') {
+            initializeScanner();
+        } else {
+            setTimeout(() => {
+                if (typeof ZXing !== 'undefined') {
+                    initializeScanner();
+                } else {
+                    console.error('ZXing library not loaded');
+                    startScannerBtn.disabled = true;
+                    startScannerBtn.innerHTML = '<i data-lucide="camera-off" class="w-5 h-5 inline mr-2"></i>Library Error';
+                }
+            }, 1000);
+        }
     }
     
     lucide.createIcons();
@@ -178,12 +184,21 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeScanner() {
-    document.getElementById('start-scanner').addEventListener('click', startScanner);
-    document.getElementById('stop-scanner').addEventListener('click', stopScanner);
+    const startBtn = document.getElementById('start-scanner');
+    const stopBtn = document.getElementById('stop-scanner');
+    
+    if (startBtn) {
+        startBtn.addEventListener('click', startScanner);
+    }
+    if (stopBtn) {
+        stopBtn.addEventListener('click', stopScanner);
+    }
     
     // Auto-start scanner if no active session
     <?php if (!$active_session): ?>
-    startScanner();
+    if (startBtn) {
+        startScanner();
+    }
     <?php endif; ?>
 }
 

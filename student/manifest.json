@@ -5,7 +5,7 @@
     "start_url": "/student/",
     "display": "standalone",
     "theme_color": "#ee3a6a",
-    "background_color": "#fffee0",
+    "background_color": "#ffffff",
     "icons": [
         {
             "src": "/uploads/pwa_icons/icon-72x72.png",
