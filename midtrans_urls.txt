@@ -1,0 +1,37 @@
+
+=== URL UNTUK KONFIGURASI DASHBOARD MIDTRANS ===
+
+🔗 FINISH URL (Success Payment):
+https://yourdomain.com/success_payment.php
+
+🔗 ERROR PAYMENT URL (Failed Payment):
+https://yourdomain.com/error_payment.php
+
+🔗 UNFINISH URL (Pending Payment):
+https://yourdomain.com/error_payment.php
+
+🔗 NOTIFICATION URL (Webhook):
+https://yourdomain.com/webhook.php
+
+📝 CARA SETTING DI DASHBOARD MIDTRANS:
+1. Login ke Midtrans Production Dashboard (MAP)
+2. Masuk ke Settings → Configuration → Payment Notification
+3. Masukkan URL-URL di atas sesuai dengan field yang tersedia
+4. Pastikan Notification URL sudah diset untuk webhook
+
+⚠️ CATATAN PENTING:
+- Ganti "yourdomain.com" dengan domain website Anda
+- Pastikan semua URL menggunakan HTTPS di production
+- Test URL terlebih dahulu sebelum menggunakan di production
+
+🎯 STATUS MIDTRANS SAAT INI:
+✅ Production Mode: AKTIF (is_production = 1)
+✅ Server Key: Dikonfigurasi melalui admin panel
+✅ Client Key: Dikonfigurasi melalui admin panel
+✅ Webhook Handler: webhook.php
+✅ Manual Payment Upload: Tersedia di error page
+
+📱 FITUR TAMBAHAN:
+- Upload bukti pembayaran manual jika gagal
+- Notifikasi WhatsApp otomatis ke admin
+- Verifikasi pembayaran manual melalui admin panel
